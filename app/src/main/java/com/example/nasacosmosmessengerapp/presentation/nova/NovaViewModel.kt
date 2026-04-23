@@ -1,12 +1,17 @@
 package com.example.nasacosmosmessengerapp.presentation.nova
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.nasacosmosmessengerapp.core.util.ApodDateParseResult
 import com.example.nasacosmosmessengerapp.core.util.parseApodDateInput
+import com.example.nasacosmosmessengerapp.data.remote.NasaApiConfig
+import com.example.nasacosmosmessengerapp.data.remote.NasaApiModule
+import com.example.nasacosmosmessengerapp.data.remote.dto.ApodResponseDto
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
@@ -14,6 +19,7 @@ import java.util.TimeZone
 class NovaViewModel : ViewModel() {
 
     private var messageSeq: Long = 1000L
+    private val apiService = NasaApiModule.nasaApodApiService
 
     private val _uiState = MutableStateFlow(NovaUiState.initial())
     val uiState: StateFlow<NovaUiState> = _uiState.asStateFlow()
@@ -40,49 +46,134 @@ class NovaViewModel : ViewModel() {
     }
 
     fun onSendClick() {
+        val content = _uiState.value.draft.trim()
+        if (content.isBlank()) return
+
         _uiState.update { s ->
-            val content = s.draft.trim()
-            if (content.isBlank()) {
-                return@update s
-            }
-
-            val nextMessages = mutableListOf<ChatMessageUi>()
-            nextMessages += ChatMessageUi(
-                id = nextMessageId("u"),
-                text = content,
-                fromUser = true
-            )
-
-            when (val dateResult = parseApodDateInput(content)) {
-                ApodDateParseResult.NotDateLike -> Unit
-                ApodDateParseResult.InvalidDate -> {
-                    nextMessages += ChatMessageUi(
-                        id = nextMessageId("s"),
-                        text = "無效日期，請確認日期是否存在（例如 2025-02-31 無效）。",
-                        fromUser = false
-                    )
-                }
-                is ApodDateParseResult.OutOfRange -> {
-                    nextMessages += ChatMessageUi(
-                        id = nextMessageId("s"),
-                        text = "日期超出範圍，請輸入 ${dateResult.minDate} 到 ${dateResult.maxDate}。",
-                        fromUser = false
-                    )
-                }
-                is ApodDateParseResult.Valid -> {
-                    nextMessages += ChatMessageUi(
-                        id = nextMessageId("s"),
-                        text = "日期已解析：${dateResult.canonicalDate}。",
-                        fromUser = false
-                    )
-                }
-            }
-
             s.copy(
-                messages = s.messages + nextMessages,
+                messages = s.messages + ChatMessageUi(
+                    id = nextMessageId("u"),
+                    text = content,
+                    fromUser = true
+                ),
                 draft = ""
             )
         }
+
+        when (val dateResult = parseApodDateInput(content)) {
+            ApodDateParseResult.NotDateLike -> fetchTodayApod()
+            ApodDateParseResult.InvalidDate -> {
+                appendSystemMessage("無效日期，請確認日期是否存在（例如 2025-02-31 無效）。")
+            }
+            is ApodDateParseResult.OutOfRange -> {
+                appendSystemMessage("日期超出範圍，請輸入 ${dateResult.minDate} 到 ${dateResult.maxDate}。")
+            }
+            is ApodDateParseResult.Valid -> fetchApodByDate(dateResult.canonicalDate)
+        }
+    }
+
+    private fun fetchTodayApod() {
+        val loadingId = appendLoadingMessage("正在查詢今日 APOD...")
+        viewModelScope.launch {
+            runCatching {
+                apiService.getTodayApod(NasaApiConfig.apiKey)
+            }.onSuccess { dto ->
+                replaceMessage(
+                    messageId = loadingId,
+                    message = dto.toApodMessage(id = loadingId)
+                )
+            }.onFailure {
+                replaceMessage(
+                    messageId = loadingId,
+                    message = ChatMessageUi(
+                        id = loadingId,
+                        text = "取得今日 APOD 失敗，請稍後再試。",
+                        fromUser = false,
+                        isError = true
+                    )
+                )
+            }
+        }
+    }
+
+    private fun fetchApodByDate(date: String) {
+        val loadingId = appendLoadingMessage("正在查詢 $date 的 APOD...")
+        viewModelScope.launch {
+            runCatching {
+                apiService.getApodByDate(date = date, apiKey = NasaApiConfig.apiKey)
+            }.onSuccess { dto ->
+                replaceMessage(
+                    messageId = loadingId,
+                    message = dto.toApodMessage(id = loadingId)
+                )
+            }.onFailure {
+                replaceMessage(
+                    messageId = loadingId,
+                    message = ChatMessageUi(
+                        id = loadingId,
+                        text = "取得 $date 的 APOD 失敗，請稍後再試。",
+                        fromUser = false,
+                        isError = true
+                    )
+                )
+            }
+        }
+    }
+
+    private fun appendLoadingMessage(text: String): String {
+        val loadingId = nextMessageId("loading")
+        _uiState.update { s ->
+            s.copy(
+                messages = s.messages + ChatMessageUi(
+                    id = loadingId,
+                    text = text,
+                    fromUser = false,
+                    isLoading = true
+                )
+            )
+        }
+        return loadingId
+    }
+
+    private fun replaceMessage(messageId: String, message: ChatMessageUi) {
+        _uiState.update { s ->
+            s.copy(
+                messages = s.messages.map { old ->
+                    if (old.id == messageId) message else old
+                }
+            )
+        }
+    }
+
+    private fun appendSystemMessage(text: String) {
+        _uiState.update { s ->
+            s.copy(
+                messages = s.messages + ChatMessageUi(
+                    id = nextMessageId("s"),
+                    text = text,
+                    fromUser = false
+                )
+            )
+        }
+    }
+
+    private fun ApodResponseDto.toApodMessage(id: String): ChatMessageUi {
+        val image = if (mediaType == "image") {
+            hdUrl ?: url
+        } else {
+            thumbnailUrl ?: url
+        }
+        return ChatMessageUi(
+            id = id,
+            text = "這是 ${date} 的 APOD：",
+            fromUser = false,
+            apodCard = ApodCardUi(
+                date = date,
+                title = title,
+                description = explanation,
+                imageUrl = image
+            )
+        )
     }
 
     private fun nextMessageId(prefix: String): String {
