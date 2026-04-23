@@ -1,9 +1,12 @@
 package com.example.nasacosmosmessengerapp.presentation.nova
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nasacosmosmessengerapp.core.util.ApodDateParseResult
 import com.example.nasacosmosmessengerapp.core.util.parseApodDateInput
+import com.example.nasacosmosmessengerapp.data.local.RoomModule
+import com.example.nasacosmosmessengerapp.data.local.entity.ApodEntity
 import com.example.nasacosmosmessengerapp.data.remote.NasaApiConfig
 import com.example.nasacosmosmessengerapp.data.remote.NasaApiModule
 import com.example.nasacosmosmessengerapp.data.remote.dto.ApodResponseDto
@@ -16,10 +19,11 @@ import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
 
-class NovaViewModel : ViewModel() {
+class NovaViewModel(application: Application) : AndroidViewModel(application) {
 
     private var messageSeq: Long = 1000L
     private val apiService = NasaApiModule.nasaApodApiService
+    private val apodDao = RoomModule.provideDatabase(application).apodDao()
 
     private val _uiState = MutableStateFlow(NovaUiState.initial())
     val uiState: StateFlow<NovaUiState> = _uiState.asStateFlow()
@@ -78,6 +82,7 @@ class NovaViewModel : ViewModel() {
             runCatching {
                 apiService.getTodayApod(NasaApiConfig.apiKey)
             }.onSuccess { dto ->
+                apodDao.upsert(dto.toApodEntity())
                 replaceMessage(
                     messageId = loadingId,
                     message = dto.toApodMessage(id = loadingId)
@@ -102,6 +107,7 @@ class NovaViewModel : ViewModel() {
             runCatching {
                 apiService.getApodByDate(date = date, apiKey = NasaApiConfig.apiKey)
             }.onSuccess { dto ->
+                apodDao.upsert(dto.toApodEntity())
                 replaceMessage(
                     messageId = loadingId,
                     message = dto.toApodMessage(id = loadingId)
@@ -165,7 +171,7 @@ class NovaViewModel : ViewModel() {
         }
         return ChatMessageUi(
             id = id,
-            text = "這是 ${date} 的 APOD：",
+            text = " ${date} 的星空圖長這樣：",
             fromUser = false,
             apodCard = ApodCardUi(
                 date = date,
@@ -173,6 +179,20 @@ class NovaViewModel : ViewModel() {
                 description = explanation,
                 imageUrl = image
             )
+        )
+    }
+
+    private fun ApodResponseDto.toApodEntity(): ApodEntity {
+        return ApodEntity(
+            date = date,
+            title = title,
+            explanation = explanation,
+            mediaType = mediaType,
+            url = url,
+            hdUrl = hdUrl,
+            thumbnailUrl = thumbnailUrl,
+            copyright = copyright,
+            updatedAt = System.currentTimeMillis()
         )
     }
 

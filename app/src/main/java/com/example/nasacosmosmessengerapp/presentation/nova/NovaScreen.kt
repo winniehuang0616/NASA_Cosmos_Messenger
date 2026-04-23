@@ -330,7 +330,7 @@ private fun ApodCard(
         )
         Column(modifier = Modifier.padding(12.dp)) {
             Text(
-                text = apod.date,
+                text = apod.title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
