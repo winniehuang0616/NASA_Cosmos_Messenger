@@ -15,7 +15,9 @@ object RoomModule {
                 context.applicationContext,
                 AppDatabase::class.java,
                 DATABASE_NAME
-            ).build().also { db ->
+            )
+                .fallbackToDestructiveMigration()
+                .build().also { db ->
                 instance = db
             }
         }

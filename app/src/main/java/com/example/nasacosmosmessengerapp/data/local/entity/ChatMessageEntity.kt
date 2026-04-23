@@ -1,12 +1,21 @@
 package com.example.nasacosmosmessengerapp.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "chat_messages",
-    indices = [Index("createdAt")]
+    foreignKeys = [
+        ForeignKey(
+            entity = ApodEntity::class,
+            parentColumns = ["date"],
+            childColumns = ["apodDate"],
+            onDelete = ForeignKey.SET_NULL
+        )
+    ],
+    indices = [Index("createdAt"), Index("apodDate")]
 )
 data class ChatMessageEntity(
     @PrimaryKey
