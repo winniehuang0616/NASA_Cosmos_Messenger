@@ -3,8 +3,8 @@ package com.example.nasacosmosmessengerapp.presentation
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.RocketLaunch
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -19,7 +19,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.nasacosmosmessengerapp.presentation.favorites.FavoritesPlaceholderScreen
+import com.example.nasacosmosmessengerapp.presentation.favorites.FavoritesScreen
 import com.example.nasacosmosmessengerapp.presentation.nova.NovaScreen
 import com.example.nasacosmosmessengerapp.presentation.theme.NASACosmosMessengerAPPTheme
 
@@ -49,7 +49,7 @@ fun MainScaffold(modifier: Modifier = Modifier) {
                             restoreState = true
                         }
                     },
-                    icon = { Icon(Icons.Filled.Chat, contentDescription = null) },
+                    icon = { Icon(Icons.Filled.RocketLaunch, contentDescription = null) },
                     label = { Text("Nova") }
                 )
                 NavigationBarItem(
@@ -63,7 +63,7 @@ fun MainScaffold(modifier: Modifier = Modifier) {
                             restoreState = true
                         }
                     },
-                    icon = { Icon(Icons.Filled.Favorite, contentDescription = null) },
+                    icon = { Icon(Icons.Filled.Star, contentDescription = null) },
                     label = { Text("收藏") }
                 )
             }
@@ -75,7 +75,7 @@ fun MainScaffold(modifier: Modifier = Modifier) {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(MainDestinations.Nova) { NovaScreen() }
-            composable(MainDestinations.Favorites) { FavoritesPlaceholderScreen() }
+            composable(MainDestinations.Favorites) { FavoritesScreen() }
         }
     }
 }
