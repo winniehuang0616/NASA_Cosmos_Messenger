@@ -12,11 +12,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -36,63 +36,48 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.nasacosmosmessengerapp.presentation.theme.NASACosmosMessengerAPPTheme
-import java.util.Calendar
-import java.util.Locale
-import java.util.TimeZone
 
-private data class NovaPlaceholderMessage(
-    val text: String,
-    val fromUser: Boolean
-)
-
-private fun formatPickedDateUtcMillis(millis: Long): String {
-    val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
-        timeInMillis = millis
-    }
-    val y = cal.get(Calendar.YEAR)
-    val m = cal.get(Calendar.MONTH) + 1
-    val d = cal.get(Calendar.DAY_OF_MONTH)
-    return String.format(Locale.getDefault(), "%d/%02d/%02d", y, m, d)
+@Composable
+fun NovaScreen(
+    viewModel: NovaViewModel = viewModel(),
+    modifier: Modifier = Modifier
+) {
+    val state by viewModel.uiState.collectAsState()
+    NovaScreenContent(
+        state = state,
+        modifier = modifier,
+        onDraftChange = viewModel::onDraftChange,
+        onSendClick = viewModel::onSendClick,
+        onOpenDatePicker = viewModel::onOpenDatePicker,
+        onDismissDatePicker = viewModel::onDismissDatePicker,
+        onDateSelected = viewModel::onDateSelected
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NovaScreen(modifier: Modifier = Modifier) {
-    val placeholderMessages = remember {
-        listOf(
-            NovaPlaceholderMessage(
-                text = "你好，我是 Nova。輸入日期（例如 1995-06-16）即可查詢當日 APOD。",
-                fromUser = false
-            ),
-            NovaPlaceholderMessage(
-                text = "1995-06-16",
-                fromUser = true
-            ),
-            NovaPlaceholderMessage(
-                text = "（此處為 APOD 卡片預留，之後會接上 API 與圖片）",
-                fromUser = false
-            )
-        )
-    }
-
-    var draft by remember {mutableStateOf(TextFieldValue(""))}
-    var showDatePicker by remember { mutableStateOf(false) }
+fun NovaScreenContent(
+    state: NovaUiState,
+    modifier: Modifier = Modifier,
+    onDraftChange: (String) -> Unit,
+    onSendClick: () -> Unit,
+    onOpenDatePicker: () -> Unit,
+    onDismissDatePicker: () -> Unit,
+    onDateSelected: (Long) -> Unit
+) {
     val datePickerState = rememberDatePickerState()
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -127,8 +112,8 @@ fun NovaScreen(modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(
-                items = placeholderMessages,
-                key = { msg -> msg.text + msg.fromUser }
+                items = state.messages,
+                key = { it.id }
             ) { msg ->
                 ChatBubble(text = msg.text, fromUser = msg.fromUser)
             }
@@ -142,8 +127,8 @@ fun NovaScreen(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             OutlinedTextField(
-                value = draft,
-                onValueChange = { draft = it },
+                value = state.draft,
+                onValueChange = onDraftChange,
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(28.dp),
                 keyboardOptions = KeyboardOptions(
@@ -164,13 +149,8 @@ fun NovaScreen(modifier: Modifier = Modifier) {
                 singleLine = false,
                 trailingIcon = {
                     IconButton(
-                        onClick = {
-                            if (draft.text.isNotBlank()) {
-                                // 目前先做清空，之後接真正送出邏輯
-                                draft = TextFieldValue("")
-                            }
-                        },
-                        enabled = draft.text.isNotBlank()
+                        onClick = onSendClick,
+                        enabled = state.draft.isNotBlank()
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Send,
@@ -181,7 +161,7 @@ fun NovaScreen(modifier: Modifier = Modifier) {
             )
 
             FilledTonalIconButton(
-                onClick = { showDatePicker = true },
+                onClick = onOpenDatePicker,
                 modifier = Modifier.size(48.dp),
                 shape = CircleShape
             ) {
@@ -193,29 +173,21 @@ fun NovaScreen(modifier: Modifier = Modifier) {
         }
     }
 
-    if (showDatePicker) {
+    if (state.showDatePicker) {
         DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
+            onDismissRequest = onDismissDatePicker,
             confirmButton = {
                 TextButton(
                     onClick = {
-                        datePickerState.selectedDateMillis?.let { millis ->
-                            val formattedDate = formatPickedDateUtcMillis(millis)
-                            draft = TextFieldValue(
-                                text = formattedDate,
-                                selection = TextRange(formattedDate.length)
-                            )
-                        }
-                        showDatePicker = false
+                        datePickerState.selectedDateMillis?.let { onDateSelected(it) }
+                            ?: onDismissDatePicker()
                     }
                 ) {
                     Text("確定")
                 }
             },
             dismissButton = {
-                TextButton(
-                    onClick = { showDatePicker = false }
-                ) {
+                TextButton(onClick = onDismissDatePicker) {
                     Text("取消")
                 }
             }
@@ -306,6 +278,13 @@ private fun ChatBubble(
 @Composable
 private fun NovaScreenPreview() {
     NASACosmosMessengerAPPTheme {
-        NovaScreen()
+        NovaScreenContent(
+            state = NovaUiState.initial(),
+            onDraftChange = {},
+            onSendClick = {},
+            onOpenDatePicker = {},
+            onDismissDatePicker = {},
+            onDateSelected = {}
+        )
     }
 }
