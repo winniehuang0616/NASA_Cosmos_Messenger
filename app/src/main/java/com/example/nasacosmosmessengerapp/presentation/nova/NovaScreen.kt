@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -43,6 +44,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -90,6 +92,14 @@ fun NovaScreenContent(
     onApodLongPress: (ApodCardUi) -> Unit
 ) {
     val datePickerState = rememberDatePickerState()
+    val listState = rememberLazyListState()
+    val lastMessageId = state.messages.lastOrNull()?.id
+
+    LaunchedEffect(lastMessageId) {
+        if (state.messages.isNotEmpty()) {
+            listState.animateScrollToItem(state.messages.lastIndex)
+        }
+    }
 
     Column(modifier = modifier.fillMaxSize()) {
         Row(
@@ -119,6 +129,7 @@ fun NovaScreenContent(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
+            state = listState,
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
