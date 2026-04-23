@@ -1,4 +1,4 @@
-package com.example.nasacosmosmessengerapp
+package com.example.nasacosmosmessengerapp.presentation
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -11,7 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import com.example.nasacosmosmessengerapp.ui.theme.NASACosmosMessengerAPPTheme
+import com.example.nasacosmosmessengerapp.presentation.theme.NASACosmosMessengerAPPTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

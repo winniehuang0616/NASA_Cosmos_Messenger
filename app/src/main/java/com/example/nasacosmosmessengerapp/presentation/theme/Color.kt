@@ -1,4 +1,4 @@
-package com.example.nasacosmosmessengerapp.ui.theme
+package com.example.nasacosmosmessengerapp.presentation.theme
 
 import androidx.compose.ui.graphics.Color
 
