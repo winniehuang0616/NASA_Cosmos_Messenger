@@ -36,7 +36,22 @@ class NovaViewModel : ViewModel() {
     }
 
     fun onSendClick() {
-        _uiState.update { s -> if (s.draft.isNotBlank()) s.copy(draft = "") else s }
+        _uiState.update { s ->
+            val content = s.draft.trim()
+            if (content.isBlank()) {
+                s
+            } else {
+                val nextUserMessage = ChatMessageUi(
+                    id = "u_${System.currentTimeMillis()}",
+                    text = content,
+                    fromUser = true
+                )
+                s.copy(
+                    messages = s.messages + nextUserMessage,
+                    draft = ""
+                )
+            }
+        }
     }
 
     private fun formatPickedDateUtcMillis(millis: Long): String {
