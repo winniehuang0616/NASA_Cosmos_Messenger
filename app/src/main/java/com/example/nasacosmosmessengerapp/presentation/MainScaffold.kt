@@ -20,7 +20,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.nasacosmosmessengerapp.presentation.favorites.FavoritesPlaceholderScreen
-import com.example.nasacosmosmessengerapp.presentation.nova.NovaPlaceholderScreen
+import com.example.nasacosmosmessengerapp.presentation.nova.NovaScreen
 import com.example.nasacosmosmessengerapp.presentation.theme.NASACosmosMessengerAPPTheme
 
 object MainDestinations {
@@ -74,7 +74,7 @@ fun MainScaffold(modifier: Modifier = Modifier) {
             startDestination = MainDestinations.Nova,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(MainDestinations.Nova) { NovaPlaceholderScreen() }
+            composable(MainDestinations.Nova) { NovaScreen() }
             composable(MainDestinations.Favorites) { FavoritesPlaceholderScreen() }
         }
     }
