@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.Locale
+import java.util.Date
+import java.text.SimpleDateFormat
 import java.util.TimeZone
 import java.util.UUID
 
@@ -113,20 +115,28 @@ class NovaViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun fetchTodayApod() {
-        val loadingId = appendLoadingMessage("正在查詢今日 APOD...")
         viewModelScope.launch {
-            runCatching {
-                apiService.getTodayApod(NasaApiConfig.apiKey)
-            }.onSuccess { dto ->
-                apodDao.upsert(dto.toApodEntity())
-                val message = dto.toApodMessage(id = loadingId)
-                replaceMessage(
-                    messageId = loadingId,
-                    message = message
+            val todayDate = utcTodayCanonicalDate()
+            val cached = apodDao.getByDate(todayDate)
+            if (cached != null) {
+                val cachedMessage = cached.toApodMessage(
+                    id = nextMessageId("s"),
+                    prefix = "（離線快取）"
                 )
-                persistSystemMessage(message)
-                removeMessage(loadingId)
-            }.onFailure {
+                appendSystemMessage(cachedMessage.text, cachedMessage.apodCard)
+                return@launch
+            }
+
+            val loadingId = appendLoadingMessage("正在查詢今日 APOD...")
+            runCatching { apiService.getTodayApod(NasaApiConfig.apiKey) }
+                .onSuccess { dto ->
+                    apodDao.upsert(dto.toApodEntity())
+                    val message = dto.toApodMessage(id = loadingId)
+                    replaceMessage(messageId = loadingId, message = message)
+                    persistSystemMessage(message)
+                    removeMessage(loadingId)
+                }
+                .onFailure {
                 val message = ChatMessageUi(
                     id = loadingId,
                     text = "取得今日 APOD 失敗，請稍後再試。",
@@ -144,20 +154,27 @@ class NovaViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun fetchApodByDate(date: String) {
-        val loadingId = appendLoadingMessage("正在查詢 $date 的星空圖...")
         viewModelScope.launch {
-            runCatching {
-                apiService.getApodByDate(date = date, apiKey = NasaApiConfig.apiKey)
-            }.onSuccess { dto ->
-                apodDao.upsert(dto.toApodEntity())
-                val message = dto.toApodMessage(id = loadingId)
-                replaceMessage(
-                    messageId = loadingId,
-                    message = message
+            val cached = apodDao.getByDate(date)
+            if (cached != null) {
+                val cachedMessage = cached.toApodMessage(
+                    id = nextMessageId("s"),
+                    prefix = "（離線快取）"
                 )
-                persistSystemMessage(message)
-                removeMessage(loadingId)
-            }.onFailure {
+                appendSystemMessage(cachedMessage.text, cachedMessage.apodCard)
+                return@launch
+            }
+
+            val loadingId = appendLoadingMessage("正在查詢 $date 的星空圖...")
+            runCatching { apiService.getApodByDate(date = date, apiKey = NasaApiConfig.apiKey) }
+                .onSuccess { dto ->
+                    apodDao.upsert(dto.toApodEntity())
+                    val message = dto.toApodMessage(id = loadingId)
+                    replaceMessage(messageId = loadingId, message = message)
+                    persistSystemMessage(message)
+                    removeMessage(loadingId)
+                }
+                .onFailure {
                 val message = ChatMessageUi(
                     id = loadingId,
                     text = "取得 $date 的 APOD 失敗，請稍後再試。",
@@ -205,14 +222,18 @@ class NovaViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun appendSystemMessage(text: String) {
+    private fun appendSystemMessage(
+        text: String,
+        apodCard: ApodCardUi? = null
+    ) {
         val id = nextMessageId("s")
         _uiState.update { s ->
             s.copy(
                 messages = s.messages + ChatMessageUi(
                     id = id,
                     text = text,
-                    fromUser = false
+                    fromUser = false,
+                    apodCard = apodCard
                 )
             )
         }
@@ -222,7 +243,7 @@ class NovaViewModel(application: Application) : AndroidViewModel(application) {
                     id = id,
                     role = "SYSTEM",
                     text = text,
-                    apodDate = null,
+                    apodDate = apodCard?.date,
                     createdAt = System.currentTimeMillis()
                 )
             )
@@ -238,6 +259,25 @@ class NovaViewModel(application: Application) : AndroidViewModel(application) {
         return ChatMessageUi(
             id = id,
             text = " ${date} 的星空圖長這樣：",
+            fromUser = false,
+            apodCard = ApodCardUi(
+                date = date,
+                title = title,
+                description = explanation,
+                imageUrl = image
+            )
+        )
+    }
+
+    private fun ApodEntity.toApodMessage(id: String, prefix: String = ""): ChatMessageUi {
+        val image = if (mediaType == "image") {
+            hdUrl ?: url
+        } else {
+            thumbnailUrl ?: url
+        }
+        return ChatMessageUi(
+            id = id,
+            text = "$prefix ${date} 的星空圖長這樣：".trim(),
             fromUser = false,
             apodCard = ApodCardUi(
                 date = date,
@@ -327,5 +367,11 @@ class NovaViewModel(application: Application) : AndroidViewModel(application) {
         val m = cal.get(Calendar.MONTH) + 1
         val d = cal.get(Calendar.DAY_OF_MONTH)
         return String.format(Locale.getDefault(), "%d/%02d/%02d", y, m, d)
+    }
+
+    private fun utcTodayCanonicalDate(): String {
+        return SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }.format(Date())
     }
 }
