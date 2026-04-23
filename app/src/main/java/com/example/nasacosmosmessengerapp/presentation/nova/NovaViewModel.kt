@@ -1,6 +1,8 @@
 package com.example.nasacosmosmessengerapp.presentation.nova
 
 import androidx.lifecycle.ViewModel
+import com.example.nasacosmosmessengerapp.core.util.ApodDateParseResult
+import com.example.nasacosmosmessengerapp.core.util.parseApodDateInput
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -10,6 +12,8 @@ import java.util.Locale
 import java.util.TimeZone
 
 class NovaViewModel : ViewModel() {
+
+    private var messageSeq: Long = 1000L
 
     private val _uiState = MutableStateFlow(NovaUiState.initial())
     val uiState: StateFlow<NovaUiState> = _uiState.asStateFlow()
@@ -39,19 +43,51 @@ class NovaViewModel : ViewModel() {
         _uiState.update { s ->
             val content = s.draft.trim()
             if (content.isBlank()) {
-                s
-            } else {
-                val nextUserMessage = ChatMessageUi(
-                    id = "u_${System.currentTimeMillis()}",
-                    text = content,
-                    fromUser = true
-                )
-                s.copy(
-                    messages = s.messages + nextUserMessage,
-                    draft = ""
-                )
+                return@update s
             }
+
+            val nextMessages = mutableListOf<ChatMessageUi>()
+            nextMessages += ChatMessageUi(
+                id = nextMessageId("u"),
+                text = content,
+                fromUser = true
+            )
+
+            when (val dateResult = parseApodDateInput(content)) {
+                ApodDateParseResult.NotDateLike -> Unit
+                ApodDateParseResult.InvalidDate -> {
+                    nextMessages += ChatMessageUi(
+                        id = nextMessageId("s"),
+                        text = "無效日期，請確認日期是否存在（例如 2025-02-31 無效）。",
+                        fromUser = false
+                    )
+                }
+                is ApodDateParseResult.OutOfRange -> {
+                    nextMessages += ChatMessageUi(
+                        id = nextMessageId("s"),
+                        text = "日期超出範圍，請輸入 ${dateResult.minDate} 到 ${dateResult.maxDate}。",
+                        fromUser = false
+                    )
+                }
+                is ApodDateParseResult.Valid -> {
+                    nextMessages += ChatMessageUi(
+                        id = nextMessageId("s"),
+                        text = "日期已解析：${dateResult.canonicalDate}。",
+                        fromUser = false
+                    )
+                }
+            }
+
+            s.copy(
+                messages = s.messages + nextMessages,
+                draft = ""
+            )
         }
+    }
+
+    private fun nextMessageId(prefix: String): String {
+        messageSeq += 1
+        return "${prefix}_${messageSeq}"
     }
 
     private fun formatPickedDateUtcMillis(millis: Long): String {
