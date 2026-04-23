@@ -7,6 +7,7 @@ import com.example.nasacosmosmessengerapp.core.util.ApodDateParseResult
 import com.example.nasacosmosmessengerapp.core.util.parseApodDateInput
 import com.example.nasacosmosmessengerapp.data.local.RoomModule
 import com.example.nasacosmosmessengerapp.data.local.entity.ApodEntity
+import com.example.nasacosmosmessengerapp.data.local.entity.FavoriteApodEntity
 import com.example.nasacosmosmessengerapp.data.remote.NasaApiConfig
 import com.example.nasacosmosmessengerapp.data.remote.NasaApiModule
 import com.example.nasacosmosmessengerapp.data.remote.dto.ApodResponseDto
@@ -23,7 +24,9 @@ class NovaViewModel(application: Application) : AndroidViewModel(application) {
 
     private var messageSeq: Long = 1000L
     private val apiService = NasaApiModule.nasaApodApiService
-    private val apodDao = RoomModule.provideDatabase(application).apodDao()
+    private val database = RoomModule.provideDatabase(application)
+    private val apodDao = database.apodDao()
+    private val favoriteApodDao = database.favoriteApodDao()
 
     private val _uiState = MutableStateFlow(NovaUiState.initial())
     val uiState: StateFlow<NovaUiState> = _uiState.asStateFlow()
@@ -102,7 +105,7 @@ class NovaViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun fetchApodByDate(date: String) {
-        val loadingId = appendLoadingMessage("正在查詢 $date 的 APOD...")
+        val loadingId = appendLoadingMessage("正在查詢 $date 的星空圖...")
         viewModelScope.launch {
             runCatching {
                 apiService.getApodByDate(date = date, apiKey = NasaApiConfig.apiKey)
@@ -194,6 +197,23 @@ class NovaViewModel(application: Application) : AndroidViewModel(application) {
             copyright = copyright,
             updatedAt = System.currentTimeMillis()
         )
+    }
+
+    fun onApodCardLongPress(card: ApodCardUi) {
+        viewModelScope.launch {
+            runCatching {
+                favoriteApodDao.upsertFavorite(
+                    FavoriteApodEntity(
+                        date = card.date,
+                        savedAt = System.currentTimeMillis()
+                    )
+                )
+            }.onSuccess {
+                appendSystemMessage("已加入收藏：${card.title}")
+            }.onFailure {
+                appendSystemMessage("加入收藏失敗，請稍後再試。")
+            }
+        }
     }
 
     private fun nextMessageId(prefix: String): String {

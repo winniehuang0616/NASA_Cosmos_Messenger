@@ -17,9 +17,11 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -49,7 +51,7 @@ fun FavoritesScreen(
     FavoritesScreenContent(
         state = state,
         modifier = modifier,
-        onToggleStar = viewModel::onToggleStar
+        onDeleteFavorite = viewModel::onDeleteFavorite
     )
 }
 
@@ -57,7 +59,7 @@ fun FavoritesScreen(
 fun FavoritesScreenContent(
     state: FavoritesUiState,
     modifier: Modifier = Modifier,
-    onToggleStar: (String) -> Unit
+    onDeleteFavorite: (String) -> Unit
 ) {
     Column(modifier = modifier.fillMaxSize()) {
         Row(
@@ -92,13 +94,34 @@ fun FavoritesScreenContent(
         ) {
             items(
                 items = state.items,
-                key = { it.id }
+                key = { it.date }
             ) { item ->
-                val isStarred = item.id in state.starredIds
                 FavoriteCard(
                     item = item,
-                    isStarred = isStarred,
-                    onToggleStar = { onToggleStar(item.id) }
+                    onDeleteFavorite = { onDeleteFavorite(item.date) }
+                )
+            }
+        }
+
+        if (state.isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = 60.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else if (state.items.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = 60.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "尚無收藏，請在 Nova 長按 APOD 卡片加入收藏",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -108,8 +131,7 @@ fun FavoritesScreenContent(
 @Composable
 private fun FavoriteCard(
     item: FavoriteItemUi,
-    isStarred: Boolean,
-    onToggleStar: () -> Unit,
+    onDeleteFavorite: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -137,26 +159,18 @@ private fun FavoriteCard(
                         .padding(8.dp)
                         .size(32.dp)
                         .clip(CircleShape)
-                        .clickable { onToggleStar() },
+                        .clickable { onDeleteFavorite() },
                     shape = CircleShape,
-                    color = if (isStarred) {
-                        Color.White
-                    } else {
-                        Color.Black.copy(alpha = 0.38f)
-                    },
+                    color = Color.Black.copy(alpha = 0.45f),
                 ) {
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier.fillMaxSize()
                     ) {
                         Icon(
-                            imageVector = Icons.Filled.Star,
-                            contentDescription = "切換收藏",
-                            tint = if (isStarred) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                Color.White
-                            },
+                            imageVector = Icons.Filled.Delete,
+                            contentDescription = "刪除收藏",
+                            tint = Color.White,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -172,6 +186,14 @@ private fun FavoriteCard(
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp)
                 )
                 Text(
                     text = item.description,
@@ -195,7 +217,7 @@ private fun FavoritesScreenPreview() {
     NASACosmosMessengerAPPTheme {
         FavoritesScreenContent(
             state = FavoritesUiState.initial(),
-            onToggleStar = {}
+            onDeleteFavorite = {}
         )
     }
 }

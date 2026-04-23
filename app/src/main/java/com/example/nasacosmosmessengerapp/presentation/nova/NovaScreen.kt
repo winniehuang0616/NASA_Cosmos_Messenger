@@ -1,5 +1,7 @@
 package com.example.nasacosmosmessengerapp.presentation.nova
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -70,7 +72,8 @@ fun NovaScreen(
         onSendClick = viewModel::onSendClick,
         onOpenDatePicker = viewModel::onOpenDatePicker,
         onDismissDatePicker = viewModel::onDismissDatePicker,
-        onDateSelected = viewModel::onDateSelected
+        onDateSelected = viewModel::onDateSelected,
+        onApodLongPress = viewModel::onApodCardLongPress
     )
 }
 
@@ -83,7 +86,8 @@ fun NovaScreenContent(
     onSendClick: () -> Unit,
     onOpenDatePicker: () -> Unit,
     onDismissDatePicker: () -> Unit,
-    onDateSelected: (Long) -> Unit
+    onDateSelected: (Long) -> Unit,
+    onApodLongPress: (ApodCardUi) -> Unit
 ) {
     val datePickerState = rememberDatePickerState()
 
@@ -122,7 +126,7 @@ fun NovaScreenContent(
                 items = state.messages,
                 key = { it.id }
             ) { msg ->
-                ChatBubble(message = msg)
+                ChatBubble(message = msg, onApodLongPress = onApodLongPress)
             }
         }
 
@@ -208,6 +212,7 @@ fun NovaScreenContent(
 @Composable
 private fun ChatBubble(
     message: ChatMessageUi,
+    onApodLongPress: (ApodCardUi) -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (message.fromUser) {
@@ -301,6 +306,7 @@ private fun ChatBubble(
                     message.apodCard?.let { apod ->
                         ApodCard(
                             apod = apod,
+                            onLongPress = { onApodLongPress(apod) },
                             modifier = Modifier.padding(top = 10.dp)
                         )
                     }
@@ -310,13 +316,20 @@ private fun ChatBubble(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ApodCard(
     apod: ApodCardUi,
+    onLongPress: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onClick = {},
+                onLongClick = onLongPress
+            ),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
@@ -342,6 +355,12 @@ private fun ApodCard(
                 maxLines = 4,
                 modifier = Modifier.padding(top = 6.dp)
             )
+            Text(
+                text = "長按加入收藏",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 8.dp)
+            )
         }
     }
 }
@@ -357,7 +376,8 @@ private fun NovaScreenPreview() {
             onSendClick = {},
             onOpenDatePicker = {},
             onDismissDatePicker = {},
-            onDateSelected = {}
+            onDateSelected = {},
+            onApodLongPress = {}
         )
     }
 }

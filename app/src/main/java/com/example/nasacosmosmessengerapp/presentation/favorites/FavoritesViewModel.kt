@@ -1,21 +1,46 @@
 package com.example.nasacosmosmessengerapp.presentation.favorites
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.nasacosmosmessengerapp.data.local.RoomModule
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
-class FavoritesViewModel : ViewModel() {
+class FavoritesViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val favoriteDao = RoomModule.provideDatabase(application).favoriteApodDao()
 
     private val _uiState = MutableStateFlow(FavoritesUiState.initial())
     val uiState: StateFlow<FavoritesUiState> = _uiState.asStateFlow()
 
-    fun onToggleStar(id: String) {
-        _uiState.update { state ->
-            val next = state.starredIds.toMutableSet()
-            if (id in next) next.remove(id) else next.add(id)
-            state.copy(starredIds = next)
+    init {
+        viewModelScope.launch {
+            favoriteDao.observeFavoriteDetails().collect { rows ->
+                _uiState.update {
+                    it.copy(
+                        items = rows.map { row ->
+                            FavoriteItemUi(
+                                date = row.date,
+                                imageUrl = row.hdUrl ?: row.url,
+                                dateLabel = row.date,
+                                title = row.title,
+                                description = row.explanation
+                            )
+                        },
+                        isLoading = false
+                    )
+                }
+            }
+        }
+    }
+
+    fun onDeleteFavorite(date: String) {
+        viewModelScope.launch {
+            favoriteDao.deleteFavorite(date)
         }
     }
 }
