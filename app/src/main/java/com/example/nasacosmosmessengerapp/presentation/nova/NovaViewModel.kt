@@ -4,10 +4,10 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nasacosmosmessengerapp.core.util.ApodDateParseResult
+import com.example.nasacosmosmessengerapp.core.util.formatPickedDateUtcMillis
 import com.example.nasacosmosmessengerapp.core.util.parseApodDateInput
+import com.example.nasacosmosmessengerapp.core.util.utcTodayCanonicalDate
 import com.example.nasacosmosmessengerapp.data.local.RoomModule
-import com.example.nasacosmosmessengerapp.data.local.dao.ChatMessageWithApod
-import com.example.nasacosmosmessengerapp.data.local.entity.ApodEntity
 import com.example.nasacosmosmessengerapp.data.local.entity.FavoriteApodEntity
 import com.example.nasacosmosmessengerapp.data.local.entity.ChatMessageEntity
 import com.example.nasacosmosmessengerapp.data.remote.NasaApiConfig
@@ -18,11 +18,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.util.Calendar
-import java.util.Locale
-import java.util.Date
-import java.text.SimpleDateFormat
-import java.util.TimeZone
 import java.util.UUID
 
 class NovaViewModel(application: Application) : AndroidViewModel(application) {
@@ -115,45 +110,30 @@ class NovaViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun fetchTodayApod() {
-        viewModelScope.launch {
-            val todayDate = utcTodayCanonicalDate()
-            val cached = apodDao.getByDate(todayDate)
-            if (cached != null) {
-                val cachedMessage = cached.toApodMessage(
-                    id = nextMessageId("s"),
-                    prefix = "（離線快取）"
-                )
-                appendSystemMessage(cachedMessage.text, cachedMessage.apodCard)
-                return@launch
-            }
-
-            val loadingId = appendLoadingMessage("正在查詢今日 APOD...")
-            runCatching { apiService.getTodayApod(NasaApiConfig.apiKey) }
-                .onSuccess { dto ->
-                    apodDao.upsert(dto.toApodEntity())
-                    val message = dto.toApodMessage(id = loadingId)
-                    replaceMessage(messageId = loadingId, message = message)
-                    persistSystemMessage(message)
-                    removeMessage(loadingId)
-                }
-                .onFailure {
-                val message = ChatMessageUi(
-                    id = loadingId,
-                    text = "取得今日 APOD 失敗，請稍後再試。",
-                    fromUser = false,
-                    isError = true
-                )
-                replaceMessage(
-                    messageId = loadingId,
-                    message = message
-                )
-                persistSystemMessage(message, isError = true)
-                removeMessage(loadingId)
-            }
-        }
+        val todayDate = utcTodayCanonicalDate()
+        fetchApodWithCache(
+            date = todayDate,
+            loadingText = "正在查詢今日 APOD...",
+            errorText = "取得今日 APOD 失敗，請稍後再試。",
+            remoteCall = { apiService.getTodayApod(NasaApiConfig.apiKey) }
+        )
     }
 
     private fun fetchApodByDate(date: String) {
+        fetchApodWithCache(
+            date = date,
+            loadingText = "正在查詢 $date 的星空圖...",
+            errorText = "取得 $date 的 APOD 失敗，請稍後再試。",
+            remoteCall = { apiService.getApodByDate(date = date, apiKey = NasaApiConfig.apiKey) }
+        )
+    }
+
+    private fun fetchApodWithCache(
+        date: String,
+        loadingText: String,
+        errorText: String,
+        remoteCall: suspend () -> ApodResponseDto
+    ) {
         viewModelScope.launch {
             val cached = apodDao.getByDate(date)
             if (cached != null) {
@@ -165,8 +145,8 @@ class NovaViewModel(application: Application) : AndroidViewModel(application) {
                 return@launch
             }
 
-            val loadingId = appendLoadingMessage("正在查詢 $date 的星空圖...")
-            runCatching { apiService.getApodByDate(date = date, apiKey = NasaApiConfig.apiKey) }
+            val loadingId = appendLoadingMessage(loadingText)
+            runCatching { remoteCall() }
                 .onSuccess { dto ->
                     apodDao.upsert(dto.toApodEntity())
                     val message = dto.toApodMessage(id = loadingId)
@@ -175,19 +155,19 @@ class NovaViewModel(application: Application) : AndroidViewModel(application) {
                     removeMessage(loadingId)
                 }
                 .onFailure {
-                val message = ChatMessageUi(
-                    id = loadingId,
-                    text = "取得 $date 的 APOD 失敗，請稍後再試。",
-                    fromUser = false,
-                    isError = true
-                )
-                replaceMessage(
-                    messageId = loadingId,
-                    message = message
-                )
-                persistSystemMessage(message, isError = true)
-                removeMessage(loadingId)
-            }
+                    val message = ChatMessageUi(
+                        id = loadingId,
+                        text = errorText,
+                        fromUser = false,
+                        isError = true
+                    )
+                    replaceMessage(
+                        messageId = loadingId,
+                        message = message
+                    )
+                    persistSystemMessage(message, isError = true)
+                    removeMessage(loadingId)
+                }
         }
     }
 
@@ -250,58 +230,6 @@ class NovaViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun ApodResponseDto.toApodMessage(id: String): ChatMessageUi {
-        val image = if (mediaType == "image") {
-            hdUrl ?: url
-        } else {
-            thumbnailUrl ?: url
-        }
-        return ChatMessageUi(
-            id = id,
-            text = " ${date} 的星空圖長這樣：",
-            fromUser = false,
-            apodCard = ApodCardUi(
-                date = date,
-                title = title,
-                description = explanation,
-                imageUrl = image
-            )
-        )
-    }
-
-    private fun ApodEntity.toApodMessage(id: String, prefix: String = ""): ChatMessageUi {
-        val image = if (mediaType == "image") {
-            hdUrl ?: url
-        } else {
-            thumbnailUrl ?: url
-        }
-        return ChatMessageUi(
-            id = id,
-            text = "$prefix ${date} 的星空圖長這樣：".trim(),
-            fromUser = false,
-            apodCard = ApodCardUi(
-                date = date,
-                title = title,
-                description = explanation,
-                imageUrl = image
-            )
-        )
-    }
-
-    private fun ApodResponseDto.toApodEntity(): ApodEntity {
-        return ApodEntity(
-            date = date,
-            title = title,
-            explanation = explanation,
-            mediaType = mediaType,
-            url = url,
-            hdUrl = hdUrl,
-            thumbnailUrl = thumbnailUrl,
-            copyright = copyright,
-            updatedAt = System.currentTimeMillis()
-        )
-    }
-
     fun onApodCardLongPress(card: ApodCardUi) {
         viewModelScope.launch {
             runCatching {
@@ -336,42 +264,8 @@ class NovaViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun ChatMessageWithApod.toUiMessage(): ChatMessageUi {
-        val card = if (apodDate != null && title != null && explanation != null && url != null) {
-            val image = if (mediaType == "image") (hdUrl ?: url) else (thumbnailUrl ?: url)
-            ApodCardUi(
-                date = apodDate,
-                title = title,
-                description = explanation,
-                imageUrl = image
-            )
-        } else {
-            null
-        }
-        return ChatMessageUi(
-            id = id,
-            text = text,
-            fromUser = role == "USER",
-            apodCard = card,
-            isError = role == "ERROR"
-        )
-    }
-
     private fun nextMessageId(prefix: String): String {
         return "${prefix}_${UUID.randomUUID()}"
     }
 
-    private fun formatPickedDateUtcMillis(millis: Long): String {
-        val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply { timeInMillis = millis }
-        val y = cal.get(Calendar.YEAR)
-        val m = cal.get(Calendar.MONTH) + 1
-        val d = cal.get(Calendar.DAY_OF_MONTH)
-        return String.format(Locale.getDefault(), "%d/%02d/%02d", y, m, d)
-    }
-
-    private fun utcTodayCanonicalDate(): String {
-        return SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
-            timeZone = TimeZone.getTimeZone("UTC")
-        }.format(Date())
-    }
 }
