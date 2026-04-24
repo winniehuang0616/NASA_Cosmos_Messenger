@@ -18,7 +18,9 @@ fun ApodResponseDto.toApodMessage(id: String): ChatMessageUi {
                 url = url,
                 hdUrl = hdUrl,
                 thumbnailUrl = thumbnailUrl
-            )
+            ),
+            mediaType = mediaType,
+            contentUrl = url
         )
     )
 }
@@ -37,7 +39,9 @@ fun ApodEntity.toApodMessage(id: String, prefix: String = ""): ChatMessageUi {
                 url = url,
                 hdUrl = hdUrl,
                 thumbnailUrl = thumbnailUrl
-            )
+            ),
+            mediaType = mediaType,
+            contentUrl = url
         )
     )
 }
@@ -67,7 +71,9 @@ fun ChatMessageWithApod.toUiMessage(): ChatMessageUi {
                 url = url,
                 hdUrl = hdUrl,
                 thumbnailUrl = thumbnailUrl
-            )
+            ),
+            mediaType = mediaType ?: "image",
+            contentUrl = url
         )
     } else {
         null
@@ -90,6 +96,6 @@ private fun resolveApodImageUrl(
     return if (mediaType == "image") {
         hdUrl ?: url
     } else {
-        thumbnailUrl ?: url
+        thumbnailUrl ?: ""
     }
 }

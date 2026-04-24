@@ -13,7 +13,9 @@ data class ApodCardUi(
     val date: String,
     val title: String,
     val description: String,
-    val imageUrl: String
+    val imageUrl: String,
+    val mediaType: String,
+    val contentUrl: String
 )
 
 data class NovaUiState(

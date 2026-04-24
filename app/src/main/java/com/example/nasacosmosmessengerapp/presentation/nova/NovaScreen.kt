@@ -1,7 +1,10 @@
 package com.example.nasacosmosmessengerapp.presentation.nova
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,6 +60,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.nasacosmosmessengerapp.presentation.theme.NASACosmosMessengerAPPTheme
@@ -334,6 +338,7 @@ private fun ApodCard(
     onLongPress: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -344,14 +349,16 @@ private fun ApodCard(
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        AsyncImage(
-            model = apod.imageUrl,
-            contentDescription = apod.title,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(180.dp),
-            contentScale = ContentScale.Crop
-        )
+        if (apod.imageUrl.isNotBlank()) {
+            AsyncImage(
+                model = apod.imageUrl,
+                contentDescription = apod.title,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp),
+                contentScale = ContentScale.Crop
+            )
+        }
         Column(modifier = Modifier.padding(12.dp)) {
             Text(
                 text = apod.title,
@@ -366,6 +373,30 @@ private fun ApodCard(
                 maxLines = 4,
                 modifier = Modifier.padding(top = 6.dp)
             )
+            if (apod.mediaType == "video") {
+                if (apod.imageUrl.isBlank()) {
+                    Text(
+                        text = "此影片來源未提供縮圖",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+                Text(
+                    text = "影片連結：${apod.contentUrl}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .clickable {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(Intent.ACTION_VIEW, Uri.parse(apod.contentUrl))
+                                )
+                            }
+                        }
+                )
+            }
             Text(
                 text = "長按加入收藏",
                 style = MaterialTheme.typography.labelSmall,

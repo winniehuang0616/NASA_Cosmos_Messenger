@@ -25,7 +25,11 @@ class FavoritesViewModel(application: Application) : AndroidViewModel(applicatio
                         items = rows.map { row ->
                             FavoriteItemUi(
                                 date = row.date,
-                                imageUrl = row.hdUrl ?: row.url,
+                                imageUrl = if (row.mediaType == "image") {
+                                    row.hdUrl ?: row.url
+                                } else {
+                                    row.thumbnailUrl ?: row.url
+                                },
                                 dateLabel = row.date,
                                 title = row.title,
                                 description = row.explanation

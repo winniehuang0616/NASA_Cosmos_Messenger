@@ -8,12 +8,14 @@ interface NasaApodApiService {
 
     @GET("planetary/apod")
     suspend fun getTodayApod(
-        @Query("api_key") apiKey: String
+        @Query("api_key") apiKey: String,
+        @Query("thumbs") thumbs: Boolean = true
     ): ApodResponseDto
 
     @GET("planetary/apod")
     suspend fun getApodByDate(
         @Query("date") date: String,
-        @Query("api_key") apiKey: String
+        @Query("api_key") apiKey: String,
+        @Query("thumbs") thumbs: Boolean = true
     ): ApodResponseDto
 }
