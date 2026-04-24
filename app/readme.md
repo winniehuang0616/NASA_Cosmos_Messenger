@@ -8,8 +8,7 @@
 ## App 功能
 
 - 聊天輸入日期或自然語句查詢 APOD
-- 顯示 APOD 卡片（圖片 / 影片縮圖、標題、描述）
-- 若 APOD 為影片，顯示可點擊影片連結
+- 顯示 APOD 卡片（圖片/影片、標題、描述）
 - 聊天訊息自動平滑捲到底部
 - 長按 APOD 卡片加入收藏
 - 收藏頁刪除收藏
@@ -25,14 +24,14 @@
 - `presentation`：Compose UI + ViewModel（狀態更新與流程協調）
 - `data/local`：Room Database / Entity / DAO（SQL 與 CRUD）
 - `data/remote`：Retrofit API 與 DTO
-- `core/util`：共用工具（日期解析、日期格式工具、分享卡生成）
+- `core/util`：共用工具（日期解析、日期時間格式、生日卡分享圖生成）
 
 ---
 
 ## 專案目錄（主要）
 
 - `presentation/`
-  - `nova/`：聊天頁、聊天狀態、聊天資料流、系統訊息公版
+  - `nova/`：聊天頁、聊天狀態、聊天資料流、訊息 mapping
   - `favorites/`：收藏頁、收藏狀態、分享資料流
   - `theme/`：Compose 主題
 - `data/local/`
@@ -44,9 +43,9 @@
   - `dto/ApodResponseDto`
   - `NasaApiModule`、`NasaApiConfig`
 - `core/util/`
-  - `ApodDateParser.kt`：日期字串解析與驗證
-  - `ApodDateTimeUtil.kt`：日期格式轉換（UTC）
-  - `BirthdaySkyCardShareUtil.kt`：生日星空卡合成圖片與分享 URI 生成
+  - `ApodDateParser.kt`
+  - `ApodDateTimeUtil.kt`
+  - `BirthdaySkyCardShareUtil.kt`
 
 ---
 
@@ -55,7 +54,7 @@
 1. 使用者在 `NovaScreen` 輸入內容  
 2. `NovaViewModel` 解析文字中的日期  
 3. 先查本地 `apod_items`（local-first）  
-4. 本地沒有才呼叫 NASA APOD API  
+4. 本地沒有才呼叫 NASA APOD API
 5. 成功資料回寫 Room（`apod_items` / `chat_messages`）  
 6. 透過 Flow + StateFlow 推送到 UI
 
